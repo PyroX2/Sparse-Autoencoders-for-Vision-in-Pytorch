@@ -7,7 +7,10 @@ requires-python = ">=3.12"
 dependencies = [
     "ipykernel>=7.3.0",
     "matplotlib>=3.11.0",
+    "pylint>=4.0.6",
+    "pyment>=0.3.3",
     "scikit-learn>=1.9.0",
     "torch>=2.12.1",
+    "torcheval>=0.0.7",
     "torchvision>=0.27.1",
 ]
