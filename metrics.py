@@ -2,14 +2,8 @@
 
 import torch
 from torch import Tensor
-from torcheval.metrics import (
-    MulticlassAccuracy,
-    MulticlassF1Score,
-    MulticlassAUPRC,
-    MulticlassAUROC,
-    MulticlassRecall,
-    MulticlassPrecision,
-)
+
+from torcheval import metrics
 from typing import List, Tuple
 
 
@@ -23,12 +17,12 @@ class MetricsCalculator:
         Args:
             num_classes: Number of classes to calculate metrics for.
         """
-        self.accuracy = MulticlassAccuracy(num_classes=num_classes)
-        self.f1_score = MulticlassF1Score(num_classes=num_classes)
-        self.auprc = MulticlassAUPRC(num_classes=num_classes)
-        self.auroc = MulticlassAUROC(num_classes=num_classes)
-        self.recall = MulticlassRecall(num_classes=num_classes)
-        self.precision = MulticlassPrecision(num_classes=num_classes)
+        self.accuracy = metrics.MulticlassAccuracy(num_classes=num_classes)
+        self.f1_score = metrics.MulticlassF1Score(num_classes=num_classes)
+        self.auprc = metrics.MulticlassAUPRC(num_classes=num_classes)
+        self.auroc = metrics.MulticlassAUROC(num_classes=num_classes)
+        self.recall = metrics.MulticlassRecall(num_classes=num_classes)
+        self.precision = metrics.MulticlassPrecision(num_classes=num_classes)
 
     def update(self, outputs: List | Tensor, targets: List | Tensor) -> None:
         """
