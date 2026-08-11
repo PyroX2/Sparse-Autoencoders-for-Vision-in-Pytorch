@@ -1,0 +1,7 @@
+hyperparams:
+  learning_rate: 0.001
+  batch_size: 64
+  num_epochs: 50
+
+mnist:
+  colored_percentage: 0.95  # Percentage of colored images in the MNIST dataset (the rest is white)
