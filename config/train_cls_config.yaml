@@ -7,7 +7,10 @@ hyperparams:
   train_batch_size: 64
   val_batch_size: 64
   num_epochs: 50
+  optimizer: "adam"
+  loss_function: "cross_entropy"
 
 dataset:
   name: "mnist"
+  val_split_size: 0.2       # Percentage 0-1 how much data from train split to use as val split
   colored_percentage: 0.95  # Percentage of colored images in the MNIST dataset (the rest is white)
