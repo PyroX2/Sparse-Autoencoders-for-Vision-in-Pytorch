@@ -6,27 +6,36 @@ class GeneralTrainConfig(pydantic.BaseModel):
     seed: int
     logging_level: int
 
+
 class HyperparamsConfig(pydantic.BaseModel):
     lr: float
     train_batch_size: int
     val_batch_size: int
     num_epochs: int
+    optimizer: str
+    loss_function: str
+
 
 class DatasetConfig(pydantic.BaseModel):
-    name: str                   # Name of the dataset
-    colored_percentage: float   # Between 0 and 1
+    name: str  # Name of the dataset
+    colored_percentage: float  # Between 0 and 1
+    val_split_size: float  # Between 0-1
+
 
 class ClsTrainConfig(pydantic.BaseModel):
     dataset: DatasetConfig
     hyperparams: HyperparamsConfig
     general: GeneralTrainConfig
 
-        
     @classmethod
-    def from_yaml(cls, yaml_file):
+    def from_yaml(cls, yaml_file: str):
         with open(yaml_file, "r") as f:
             config_dict = yaml.safe_load(f)
         return cls(**config_dict)
+
+
+class SaeTrainConfig(pydantic.BaseModel):
+    pass
 
 
 class SaeTrainConfig:
