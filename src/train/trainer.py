@@ -1,22 +1,27 @@
 import torch
 import tqdm
-from src.logging.metrics_logger import MetricsLogger
+from src import logging
+from src import metrics
+from src import configs
 
 
 class BaseTrainer:
-    def __init__(self):
+    def __init__(self, n_classes: int):
+        self.model = None
         self.epoch = 0
-        self.metrics_logger = MetricsLogger()
+        self.metrics_logger = logging.MetricsLogger()
+        self.train_metrics_calculator = metrics.MetricsCalculator(num_classes=n_classes)
+        self.val_metrics_calculator = metrics.MetricsCalculator(num_classes=n_classes)
 
-    def resolve_optimizer(optimizer_name, model_parameters, learning_rate):
+    def resolve_optimizer(self, optimizer_name, learning_rate):
         if optimizer_name.lower() == 'adam':
-            return torch.optim.Adam(model_parameters, lr=learning_rate)
+            return torch.optim.Adam(self.model.parameters(), lr=learning_rate)
         elif optimizer_name.lower() == 'sgd':
-            return torch.optim.SGD(model_parameters, lr=learning_rate)
+            return torch.optim.SGD(self.model.parameters(), lr=learning_rate)
         else:
             raise ValueError(f"Unsupported optimizer: {optimizer_name}")
 
-    def resolve_loss_function(loss_function_name):
+    def resolve_loss_function(self, loss_function_name):
         if loss_function_name.lower() == 'cross_entropy':
             return torch.nn.CrossEntropyLoss()
         elif loss_function_name.lower() == 'mse':
@@ -25,6 +30,14 @@ class BaseTrainer:
             raise ValueError(f"Unsupported loss function: {loss_function_name}")
 
     def train_one_epoch(self):
+        """
+        Performs the optimization over the whole dataset once.
+        Resets the train_metrics_calculator at the beggining and updates metrics inplace but does not return the metrics directly.
+        Those can be accesed outside of this function.
+
+        Returns:
+            float: Mean training loss for current epoch.
+        """
         self.train_metrics_calculator.reset()
         self.model.train()
         train_epoch_loss = 0
@@ -49,28 +62,66 @@ class BaseTrainer:
         mean_epoch_loss = train_epoch_loss / n_instances
         return mean_epoch_loss
 
+    @torch.no_grad()
+    def evaluate(self):
+        """
+        Evaluates the model on val dataloader
+
+        Returns:
+            float: Mean loss.
+        """
+
+        self.val_metrics_calculator.reset()
+        self.model.eval()
+        total_loss = 0
+        n_instances = 0
+        
+        for inputs, targets in tqdm.tqdm(self.val_dataloader, desc="Evaluating"):
+            inputs = inputs.to(self.device)
+            targets = targets.to(self.device)
+
+            outputs = self.model(inputs)
+
+            loss = self.criterion(outputs, targets)
+
+            total_loss += loss.item()
+            self.val_metrics_calculator.update(outputs.detach(), targets.detach())
+            n_instances += inputs.shape[0]
+        
+        mean_loss = total_loss / n_instances
+        return mean_loss
+
     def log_results(self):
         self.metrics_logger.show()
 
 
 class ClsTrainer(BaseTrainer):
-    def __init__(self, config: ClsTrainConfig, model: torch.nn.Module, train_dataloader, val_dataloader):
-        super().__init__()
+    def __init__(self,
+                 config: configs.ClsTrainConfig,
+                 model: torch.nn.Module,
+                 train_dataloader: torch.utils.data.DataLoader,
+                 val_dataloader: torch.utils.data.DataLoader,
+                 n_classes: int = 10,
+                 device: str = "cpu"):
+        super().__init__(n_classes=n_classes)
         self.config = config
+        self.device = device
         self.model = model
+        self.train_dataloader = train_dataloader
+        self.val_dataloader = val_dataloader
 
-        self.optimizer = self.resolve_optimizer(self.config.optimizer, model_parameters=self.model.parameters(), learning_rate=self.config.learning_rate)
-        self.criterion = self.resolve_loss_function(self.config.loss_function)
+        self.optimizer = self.resolve_optimizer(self.config.hyperparams.optimizer, learning_rate=self.config.hyperparams.lr)
+        self.criterion = self.resolve_loss_function(self.config.hyperparams.loss_function)
 
     def train(self):
-        for epoch in range(self.config.epochs):
+        for epoch in range(self.config.hyperparams.num_epochs):
             self.train_one_epoch()
             self.evaluate()
             self.log_results()
 
 
 class SaeTrainer(BaseTrainer):
-    def __init__(self, config: SaeTrainConfig, model: torch.nn.Module):
+    def __init__(self, config: configs.SaeTrainConfig, model: torch.nn.Module):
         super().__init__()
         self.config = config
         self.model = model
