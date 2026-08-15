@@ -1,3 +1,4 @@
+import torch
 import matplotlib.pyplot as plt
 import numpy as np
 import typing
@@ -38,3 +39,12 @@ def plot_loss(loss: typing.List, title: str | None = None) -> None:
         plt.title(title)
 
     plt.show()
+
+
+def get_device():
+    if torch.cuda.is_available():
+        return "cuda"
+    elif torch.backends.mps.is_available():
+        return "mps"
+    else:
+        return "cpu"

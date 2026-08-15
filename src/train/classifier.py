@@ -4,22 +4,14 @@ import sklearn
 from src.configs import configs
 from src.data import data
 from src.models import ClsModel
-
-
-def get_device():
-    if torch.cuda.is_available():
-        return "cuda"
-    elif torch.backends.mps.is_available():
-        return "mps"
-    else:
-        return "cpu"
+import utils
 
 
 def main():
     config = configs.ClsTrainConfig.from_yaml("config/train_cls_config.yaml")
     logger = logging.Logger("Training logger", config.general.logging_level)
 
-    device = get_device()
+    device = utils.get_device()
 
     train_dataset = data.get_dataset(config.dataset.name, split="train")
     test_dataset = data.get_dataset(config.dataset.name, split="test")
