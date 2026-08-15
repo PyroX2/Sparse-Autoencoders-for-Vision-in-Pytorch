@@ -12,7 +12,15 @@ from src import utils
 def main():
     train_config = configs.ClsTrainConfig.from_yaml("config/train_cls_config.yaml")
     display_config = configs.DisplayConfig.from_yaml("config/display_config.yaml")
-    logger = logging.Logger("Training logger", train_config.general.logging_level)
+    logger = logging.Logger("Training logger")
+    logging_level = train_config.general.logging_level * 10
+    logger.setLevel(logging_level)
+
+    handler = logging.StreamHandler()
+    handler.setFormatter(logging.Formatter("%(asctime)s - %(levelname)s - %(message)s"))
+
+    if not logger.handlers:
+        logger.addHandler(handler)
 
     device = utils.get_device()
 
@@ -83,6 +91,7 @@ def main():
         val_dataloader=colored_val_dataloader,
         n_classes=n_classes,
         device=device,
+        logger=logger
     )
     trainer.train()
 
