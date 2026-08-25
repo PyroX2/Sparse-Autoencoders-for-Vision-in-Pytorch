@@ -256,3 +256,28 @@
 254. -
 255. -
 256. -
+
+
+# Results
+### Removal of neurons [31, 35, 38, 110, 197]:
+```
+=========== BASELINE ===========
+Evaluating: 100%|██████████| 375/375 [00:01<00:00, 301.78it/s]
+Evaluating: 100%|██████████| 375/375 [00:01<00:00, 275.68it/s]
+Evaluating: 100%|██████████| 375/375 [00:01<00:00, 327.25it/s]
+Performance on clean validation set:
+Clean Val Loss: 0.015241414661208789, Accuracy: 0.8572604060173035, Precision: 0.8572604060173035, Recall: 0.8572604060173035, F1 Score: 0.8564618825912476, AUPRC: 0.9122222065925598, AUROC: 0.9766136407852173
+Performance on fully colored validation set:
+Fully Colored Val Loss: 0.00024403737605704616, Accuracy: 0.9996673464775085, Precision: 0.9996673464775085, Recall: 0.9996673464775085, F1 Score: 0.9996622800827026, AUPRC: 0.9998480677604675, AUROC: 0.999951183795929
+Performance on validation set with colors flipped:
+Colors flipped Val Loss: 0.15280315073331197, Accuracy: 0.3303631544113159, Precision: 0.3303631544113159, Recall: 0.3303631544113159, F1 Score: 0.3117218613624573, AUPRC: 0.3325870633125305, AUROC: 0.618381679058075
+=========== TRIMMED ===========
+Evaluating: 100%|██████████| 375/375 [00:01<00:00, 285.14it/s]
+Evaluating: 100%|██████████| 375/375 [00:01<00:00, 286.06it/s]
+Evaluating: 100%|██████████| 375/375 [00:01<00:00, 286.24it/s]Performance on clean validation set:
+Clean Val Loss: 0.019227750840286415, Accuracy: 0.8230992555618286, Precision: 0.8230992555618286, Recall: 0.8230992555618286, F1 Score: 0.8231642842292786, AUPRC: 0.8915170431137085, AUROC: 0.9720733761787415
+Performance on fully colored validation set:
+Fully Colored Val Loss: 0.01341210949436451, Accuracy: 0.8883697390556335, Precision: 0.8883697390556335, Recall: 0.8883697390556335, F1 Score: 0.8447645306587219, AUPRC: 0.9200679063796997, AUROC: 0.9697611927986145
+Performance on validation set with colors flipped:
+Colors flipped Val Loss: 0.10340533173084258, Accuracy: 0.45948758721351624, Precision: 0.45948758721351624, Recall: 0.45948758721351624, F1 Score: 0.40913987159729004, AUPRC: 0.4378647804260254, AUROC: 0.694301962852478
+```
