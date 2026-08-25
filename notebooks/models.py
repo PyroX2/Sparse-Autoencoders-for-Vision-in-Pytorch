@@ -23,12 +23,16 @@ class ClsModel(nn.Module):
 
 class TrimmedClsModel(nn.Module):
     def __init__(
-        self, cls_model: nn.Module, sae_model: nn.Module, neurons_to_kill: List = []
+        self,
+        cls_model: nn.Module,
+        sae_model: nn.Module,
+        neurons_to_kill: List = [],
+        sae_features_layer: int = -3,
     ):
         super().__init__()
         self.cls_model = cls_model
-        self.cls_backbone = self.cls_model.fc[:-3]
-        self.cls_head = self.cls_model.fc[-3:]
+        self.cls_backbone = self.cls_model.fc[: sae_features_layer + 1]
+        self.cls_head = self.cls_model.fc[sae_features_layer + 1 :]
 
         self.sae_model = sae_model
         self.neurons_to_kill = neurons_to_kill
@@ -42,9 +46,9 @@ class TrimmedClsModel(nn.Module):
         modified_hidden = hidden
         modified_hidden[:, self.neurons_to_kill] = 0
 
-        # values, indices = torch.topk(modified_hidden, self.sae_model.topk, dim=1)
-        # sparse_hidden = torch.zeros_like(modified_hidden)
-        # sparse_hidden.scatter_(1, indices, values)
+        values, indices = torch.topk(modified_hidden, self.sae_model.topk, dim=1)
+        sparse_hidden = torch.zeros_like(modified_hidden)
+        sparse_hidden.scatter_(1, indices, values)
 
         sae_output = self.sae_model.decode(modified_hidden)
 
@@ -64,9 +68,9 @@ class SAE(nn.Module):
                 n_hidden: Shape of hidden vector.
         """
         super().__init__()
-        self.encoder = nn.Linear(n_inputs, n_hidden)
-        self.decoder = nn.Linear(n_hidden, n_inputs)
-        self.decoder.weight = torch.nn.Parameter(self.encoder.weight.T)
+        self.weights = nn.Parameter(torch.empty(n_inputs, n_hidden), requires_grad=True)
+        nn.init.xavier_normal_(self.weights)
+        self.bias = nn.Parameter(torch.zeros(n_inputs), requires_grad=True)
         self.hidden_dim = n_hidden
 
     def encode(self, x: torch.Tensor) -> torch.Tensor:
@@ -78,7 +82,7 @@ class SAE(nn.Module):
         Returns:
                 torch.Tensor: Autoencoder hidden vector.
         """
-        return torch.relu(self.encoder(x))
+        return torch.relu(torch.einsum("...i, ij -> ...j", x, self.weights))
 
     def decode(self, hidden: torch.Tensor) -> torch.Tensor:
         """
@@ -89,7 +93,7 @@ class SAE(nn.Module):
         Returns:
                 torch.Tensor: Reconstructed output.
         """
-        return self.decoder(hidden)
+        return torch.einsum("...j, ij -> ...i", hidden, self.weights) + self.bias
 
     def forward(self, x):
         """
@@ -120,28 +124,22 @@ class TopkSAE(nn.Module):
                 topk: Number of top values to keep.
         """
         super().__init__()
-        self.encoder = nn.Sequential(
-            nn.Linear(n_inputs, n_hidden),
-            nn.LeakyReLU(),
-            nn.Linear(n_hidden, n_hidden),
-            nn.LeakyReLU(),
-        )
-        self.decoder = nn.Sequential(
-            nn.Linear(n_hidden, n_hidden), nn.LeakyReLU(), nn.Linear(n_hidden, n_inputs)
-        )
         self.topk = topk
+        self.weights = nn.Parameter(torch.empty(n_inputs, n_hidden), requires_grad=True)
+        nn.init.xavier_normal_(self.weights)
+        self.bias = nn.Parameter(torch.zeros(n_inputs), requires_grad=True)
         self.hidden_dim = n_hidden
 
     def encode(self, x: torch.Tensor) -> torch.Tensor:
         """
-        Encodes the input using using encoder layer. Doesn't apply topk.
+        Encodes the input using using encoder layer.
 
         Args:
                 x: Input tensor.
         Returns:
                 torch.Tensor: Autoencoder hidden vector.
         """
-        return self.encoder(x)
+        return torch.relu(torch.einsum("...i, ij -> ...j", x, self.weights))
 
     def decode(self, hidden: torch.Tensor) -> torch.Tensor:
         """
@@ -152,7 +150,7 @@ class TopkSAE(nn.Module):
         Returns:
                 torch.Tensor: Reconstructed output.
         """
-        return self.decoder(hidden)
+        return torch.einsum("...j, ij -> ...i", hidden, self.weights) + self.bias
 
     def forward(self, x):
         """

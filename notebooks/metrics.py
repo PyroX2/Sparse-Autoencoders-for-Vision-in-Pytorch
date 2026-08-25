@@ -10,19 +10,26 @@ from typing import List, Tuple
 class MetricsCalculator:
     """Compute and aggregate metrics for multi-class classification."""
 
-    def __init__(self, num_classes):
+    def __init__(self, num_classes, average="macro"):
         """
         Initialize metrics calculator.
 
         Args:
             num_classes: Number of classes to calculate metrics for.
+            average: The type of averaging to use for the metrics.
         """
-        self.accuracy = metrics.MulticlassAccuracy(num_classes=num_classes)
-        self.f1_score = metrics.MulticlassF1Score(num_classes=num_classes)
-        self.auprc = metrics.MulticlassAUPRC(num_classes=num_classes)
-        self.auroc = metrics.MulticlassAUROC(num_classes=num_classes)
-        self.recall = metrics.MulticlassRecall(num_classes=num_classes)
-        self.precision = metrics.MulticlassPrecision(num_classes=num_classes)
+        self.accuracy = metrics.MulticlassAccuracy(
+            num_classes=num_classes, average=average
+        )
+        self.f1_score = metrics.MulticlassF1Score(
+            num_classes=num_classes, average=average
+        )
+        self.auprc = metrics.MulticlassAUPRC(num_classes=num_classes, average=average)
+        self.auroc = metrics.MulticlassAUROC(num_classes=num_classes, average=average)
+        self.recall = metrics.MulticlassRecall(num_classes=num_classes, average=average)
+        self.precision = metrics.MulticlassPrecision(
+            num_classes=num_classes, average=average
+        )
 
     def update(self, outputs: List | Tensor, targets: List | Tensor) -> None:
         """
