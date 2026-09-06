@@ -37,7 +37,7 @@ class TrimmedClsModel(nn.Module):
         self.sae_model = sae_model
         self.neurons_to_kill = neurons_to_kill
 
-    def forward(self, x):
+    def forward(self, x, return_hidden=False):
         # Embedding extraction using cls backbone
         embedding = self.cls_backbone(x)
 
@@ -46,13 +46,18 @@ class TrimmedClsModel(nn.Module):
         modified_hidden = hidden
         modified_hidden[:, self.neurons_to_kill] = 0
 
-        values, indices = torch.topk(modified_hidden, self.sae_model.topk, dim=1)
-        sparse_hidden = torch.zeros_like(modified_hidden)
-        sparse_hidden.scatter_(1, indices, values)
+        topk = getattr(self.sae_model, "topk", 0)
+
+        if topk:
+            values, indices = torch.topk(modified_hidden, topk, dim=1)
+            sparse_hidden = torch.zeros_like(modified_hidden)
+            sparse_hidden.scatter_(1, indices, values)
 
         sae_output = self.sae_model.decode(modified_hidden)
 
         cls_output = self.cls_head(sae_output)
+        if return_hidden:
+            return cls_output, sparse_hidden
         return cls_output
 
 
@@ -152,7 +157,7 @@ class TopkSAE(nn.Module):
         """
         return torch.einsum("...j, ij -> ...i", hidden, self.weights) + self.bias
 
-    def forward(self, x):
+    def forward(self, x, apply_topk=True):
         """
         Forward function that encodes the input, applies topk and reconstructs it using decoder.
 
@@ -165,9 +170,148 @@ class TopkSAE(nn.Module):
         """
         hidden = self.encode(x)
 
-        values, indices = torch.topk(hidden, self.topk, dim=1)
-        sparse_hidden = torch.zeros_like(hidden)
-        sparse_hidden.scatter_(1, indices, values)
+        if apply_topk:
+            values, indices = torch.topk(hidden, self.topk, dim=1)
+            sparse_hidden = torch.zeros_like(hidden)
+            sparse_hidden.scatter_(1, indices, values)
+        else:
+            sparse_hidden = hidden
+
+        output = self.decode(sparse_hidden)
+        return output, sparse_hidden
+
+
+class BatchTopkSAE(nn.Module):
+    def __init__(self, n_inputs: int, n_hidden: int, topk: int) -> None:
+        super().__init__()
+        self.topk = topk
+        self.weights = nn.Parameter(torch.empty(n_inputs, n_hidden), requires_grad=True)
+        nn.init.xavier_normal_(self.weights)
+        self.bias = nn.Parameter(torch.zeros(n_inputs), requires_grad=True)
+        self.hidden_dim = n_hidden
+
+    def encode(self, x: torch.Tensor) -> torch.Tensor:
+        """
+        Encodes the input using using encoder layer.
+
+        Args:
+                x: Input tensor.
+        Returns:
+                torch.Tensor: Autoencoder hidden vector.
+        """
+        return torch.relu(torch.einsum("...i, ij -> ...j", x, self.weights))
+
+    def decode(self, hidden: torch.Tensor) -> torch.Tensor:
+        """
+        Decodes the input using using decoder layer.
+
+        Args:
+                hidden: Hidden vector which is an output of the encoder layer.
+        Returns:
+                torch.Tensor: Reconstructed output.
+        """
+        return torch.einsum("...j, ij -> ...i", hidden, self.weights) + self.bias
+
+    def forward(self, x, apply_topk=True):
+        """
+        Forward function that encodes the input and reconstructs it using decoder.
+
+        Args:
+                x: Input tensor.
+
+        Returns:
+                torch.Tensor: Reconstructed input.
+                torch.Tensor: Hidden vector which is an output of the encoder layer.
+        """
+        hidden = self.encode(x)
+
+        if apply_topk:
+            batch_size, _ = hidden.shape
+            hidden = hidden.flatten(start_dim=0)  # Flatten including batch dimension
+            values, indices = torch.topk(hidden, self.topk * batch_size, dim=0)
+            sparse_hidden = torch.zeros_like(hidden)
+            sparse_hidden.scatter_(0, indices, values)
+            sparse_hidden = sparse_hidden.reshape((batch_size, -1))
+        else:
+            sparse_hidden = hidden
+
+        output = self.decode(sparse_hidden)
+        return output, sparse_hidden
+
+
+class MatryoshkaBatchTopkSAE(nn.Module):
+    def __init__(self, n_inputs: int, expansion_factors: List, topk: int) -> None:
+        """
+        Matryoshka SAE that applies TopK at batch level.
+        Args:
+                n_inputs: Number of SAE input features.
+                expansion_factors: List of the expansion factors for each SAE inside the Matryoshka.
+                    Think of it like creating multiple SAEs with those expansion factors that share weights between each other.
+                topk: TopK applied at batch level
+        """
+        super().__init__()
+        self.topk = topk
+        self.n_inputs = n_inputs
+        self.expansion_factors = expansion_factors
+        self.weights = nn.Parameter(
+            torch.empty(
+                n_inputs, expansion_factors[-1] * n_inputs, dtype=torch.float32
+            ),
+            requires_grad=True,
+        )
+        nn.init.xavier_normal_(self.weights)
+        self.bias = nn.Parameter(torch.zeros(n_inputs), requires_grad=True)
+
+    def encode(self, x: torch.Tensor) -> torch.Tensor:
+        """
+        Encodes the input using using encoder layer.
+
+        Args:
+                x: Input tensor.
+        Returns:
+                torch.Tensor: Autoencoder hidden vector.
+        """
+        return torch.relu(torch.einsum("...i, ij -> ...j", x, self.weights))
+
+    def decode(self, hidden: torch.Tensor) -> torch.Tensor:
+        """
+        Decodes the input using using decoder layer.
+
+        Args:
+                hidden: Hidden vector which is an output of the encoder layer.
+        Returns:
+                torch.Tensor: Reconstructed output.
+        """
+        contribution = hidden.unsqueeze(-1) * self.weights.T.unsqueeze(0)
+        decoded_cumsum = torch.cumsum(contribution, dim=1)
+
+        # Decoded of shape [batch_size, #expansion_factors, n_inputs]
+        decoded = decoded_cumsum[:, self.expansion_factors * self.n_inputs - 1]
+
+        return decoded
+
+    def forward(self, x, apply_topk=True):
+        """
+        Forward function that encodes the input and reconstructs it using decoder.
+
+        Args:
+                x: Input tensor.
+
+        Returns:
+                torch.Tensor: Reconstructed input.
+                torch.Tensor: Hidden vector which is an output of the encoder layer.
+        """
+        hidden = self.encode(x)
+
+        if apply_topk:
+            batch_size, _ = hidden.shape
+            hidden = hidden.flatten(start_dim=0)  # Flatten including batch dimension
+            values, indices = torch.topk(hidden, self.topk * batch_size, dim=0)
+            sparse_hidden = torch.zeros_like(hidden)
+            sparse_hidden.scatter_(0, indices, values)
+            sparse_hidden = sparse_hidden.reshape((batch_size, -1))
+        else:
+            sparse_hidden = hidden
 
         output = self.decode(sparse_hidden)
         return output, sparse_hidden
