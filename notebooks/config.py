@@ -1,7 +1,9 @@
 SEED = 0
-CLS_EPOCHS = 3
+CLS_EPOCHS = 10
 VAL_SIZE = 0.2
 COLORED_PROPORTION = 0.95
+
+RUN_NAME = "cls_small_network"
 
 TRAIN_BS = 32
 VAL_BS = 32

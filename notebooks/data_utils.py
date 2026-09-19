@@ -6,7 +6,11 @@ import tqdm
 
 @torch.no_grad()
 def generate_sae_dataset(
-    model: nn.Module, dataset: data.Dataset, device="cpu", layer_idx: int = -1
+    model: nn.Module,
+    dataset: data.Dataset,
+    device="cpu",
+    layer_idx: int = -1,
+    sae_input_shape: int = 16,
 ) -> data.TensorDataset:
     """
     Function for generating SAE dataset based on a model and a dataset.
@@ -19,7 +23,6 @@ def generate_sae_dataset(
     Returns:
             data.TensorDataset: SAE dataset with encoded images.
     """
-    sae_input_shape = model.fc[layer_idx].out_features
     sae_dataset = torch.empty(len(dataset), sae_input_shape)
 
     idx = 0

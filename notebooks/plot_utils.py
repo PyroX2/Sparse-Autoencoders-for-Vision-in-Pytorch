@@ -48,3 +48,7 @@ def get_device():
         return "mps"
     else:
         return "cpu"
+
+
+def normalize_min_max(data: torch.Tensor) -> torch.Tensor:
+    return (data - data.min()) / (data.max() - data.min())

@@ -8,17 +8,28 @@ class ClsModel(nn.Module):
         super().__init__()
         self.fc = nn.Sequential(
             nn.Flatten(),
-            nn.Linear(3 * 784, 512),
+            nn.Linear(3 * 784, 16),
             nn.Tanh(),
-            nn.Linear(512, 64),
-            nn.Tanh(),
-            nn.Linear(64, 8),
-            nn.Tanh(),
-            nn.Linear(8, n_classes),
+            nn.Linear(16, n_classes),
         )
 
     def forward(self, x):
         return self.fc(x)
+
+
+class BaseSAE(nn.Module):
+    def __init__(self):
+        super().__init__()
+
+    @staticmethod
+    def _apply_topk(hidden, topk):
+        batch_size, _ = hidden.shape
+        hidden = hidden.flatten(start_dim=0)  # Flatten including batch dimension
+        values, indices = torch.topk(hidden, topk * batch_size, dim=0)
+        sparse_hidden = torch.zeros_like(hidden)
+        sparse_hidden.scatter_(0, indices, values)
+        sparse_hidden = sparse_hidden.reshape((batch_size, -1))
+        return sparse_hidden
 
 
 class TrimmedClsModel(nn.Module):
@@ -239,8 +250,8 @@ class BatchTopkSAE(nn.Module):
         return output, sparse_hidden
 
 
-class MatryoshkaBatchTopkSAE(nn.Module):
-    def __init__(self, n_inputs: int, expansion_factors: List, topk: int) -> None:
+class MatryoshkaBatchTopkSAE(BaseSAE):
+    def __init__(self, n_inputs: int, expansion_factors, topk: int | List) -> None:
         """
         Matryoshka SAE that applies TopK at batch level.
         Args:
@@ -252,11 +263,10 @@ class MatryoshkaBatchTopkSAE(nn.Module):
         super().__init__()
         self.topk = topk
         self.n_inputs = n_inputs
-        self.expansion_factors = expansion_factors
+        self.hidden_dim = int(expansion_factors[-1] * n_inputs)
+        self.expansion_factors = torch.tensor(expansion_factors)
         self.weights = nn.Parameter(
-            torch.empty(
-                n_inputs, expansion_factors[-1] * n_inputs, dtype=torch.float32
-            ),
+            torch.empty(n_inputs, self.hidden_dim, dtype=torch.float32),
             requires_grad=True,
         )
         nn.init.xavier_normal_(self.weights)
@@ -286,7 +296,12 @@ class MatryoshkaBatchTopkSAE(nn.Module):
         decoded_cumsum = torch.cumsum(contribution, dim=1)
 
         # Decoded of shape [batch_size, #expansion_factors, n_inputs]
-        decoded = decoded_cumsum[:, self.expansion_factors * self.n_inputs - 1]
+        decoded = (
+            decoded_cumsum[
+                :, (self.expansion_factors * self.n_inputs).to(torch.int32) - 1
+            ]
+            + self.bias
+        )
 
         return decoded
 
@@ -313,5 +328,6 @@ class MatryoshkaBatchTopkSAE(nn.Module):
         else:
             sparse_hidden = hidden
 
+        # Output of shape [Batch size, # of nested SAEs, input dim]
         output = self.decode(sparse_hidden)
         return output, sparse_hidden

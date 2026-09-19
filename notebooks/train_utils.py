@@ -127,7 +127,7 @@ def cls_train(
         )
 
         print(
-            f"Epoch {epoch+1}/{epochs} - Train Loss: {train_loss:.4f}, Val Loss: {val_loss:.4f}, Accuracy: {accuracy:.4f}, Precision: {precision:.4f}, Recall: {recall:.4f}, F1 Score: {f1_score:.4f}, AUPRC: {auprc:.4f}, AUROC: {auroc:.4f}"
+            f"Epoch {epoch+1}/{epochs} - Train Loss: {train_loss:.6f}, Val Loss: {val_loss:.6f}, Accuracy: {accuracy:.6f}, Precision: {precision:.6f}, Recall: {recall:.6f}, F1 Score: {f1_score:.6f}, AUPRC: {auprc:.6f}, AUROC: {auroc:.6f}"
         )
 
         train_losses.append(train_loss)
@@ -171,6 +171,9 @@ def sae_train_one_epoch(model, train_dl, criterion, optimizer, device="cuda"):
         sae_inputs = sae_inputs[0].to(device)
 
         outputs, hidden = model(sae_inputs)
+
+        if outputs.ndim == 3:
+            sae_inputs = sae_inputs.unsqueeze(1)
 
         if is_topk:
             loss = criterion(outputs, sae_inputs)
@@ -219,6 +222,9 @@ def sae_evaluate(model, dataloader, criterion, device="cuda"):
 
         outputs, hidden = model(sae_inputs)
 
+        if outputs.ndim == 3:
+            sae_inputs = sae_inputs.unsqueeze(1)
+
         if is_topk:
             loss = criterion(outputs, sae_inputs)
         else:
@@ -263,7 +269,7 @@ def sae_train(model, train_dl, val_dl, criterion, optimizer, epochs=10, device="
         )
 
         print(
-            f"Epoch {epoch+1}/{epochs} - Train Loss: {train_loss:.4f}, Val Loss: {val_loss:.4f}, Train active neurons: {train_mean_active_neurons:.4f}, Val active neurons: {val_mean_active_neurons:.4f}"
+            f"Epoch {epoch+1}/{epochs} - Train Loss: {train_loss:.6f}, Val Loss: {val_loss:.6f}, Train active neurons: {train_mean_active_neurons:.6f}, Val active neurons: {val_mean_active_neurons:.6f}"
         )
 
         train_losses.append(train_loss)
