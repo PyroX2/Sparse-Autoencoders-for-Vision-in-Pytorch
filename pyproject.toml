@@ -5,10 +5,13 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
+    "black>=26.5.1",
     "ipykernel>=7.3.0",
     "matplotlib>=3.11.0",
+    "pydantic>=2.13.4",
     "pylint>=4.0.6",
     "pyment>=0.3.3",
+    "pyyaml>=6.0.3",
     "scikit-learn>=1.9.0",
     "torch>=2.12.1",
     "torcheval>=0.0.7",
