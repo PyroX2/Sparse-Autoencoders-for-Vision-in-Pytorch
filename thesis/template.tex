@@ -1,0 +1,39 @@
+% !TEX TS-program = xelatex
+\documentclass[10pt, twoside, a4paper,openany]{book}
+\usepackage{macra_xelatex}
+
+
+\begin{document}
+% strony generowane z moja.pg
+\includepdf{TemplateChapters/Strona_tytulowa.pdf}
+\includepdf{TemplateChapters/Oswiadczenie.pdf}
+
+% streszczenie PL, EN
+\input{TemplateChapters/Streszczenie}
+\input{TemplateChapters/Abstract}
+
+% spis treści
+\tableofcontents
+
+% wykaz skrótów
+\input{TemplateChapters/Wykaz_skrotow}
+
+% rozdziały i podrozdziały numerowane
+\input{TemplateChapters/Wstep}
+\input{TemplateChapters/Dokumenty_elektroniczne}
+\input{TemplateChapters/Jeszcze_jeden_rozdzial}
+\input{TemplateChapters/Podsumowanie}
+
+% bibliografia
+% ieeetr - etykiety numerowane w kolejności wystąpienia w tekście
+\bibliographystyle{ieeetr}
+\bibliography{TemplateChapters/Bibliography}
+
+% wykazy 
+\listoffigures
+\listoftables
+
+% dodatki
+\appendix
+\input{TemplateChapters/DodatekA}  
+\end{document}

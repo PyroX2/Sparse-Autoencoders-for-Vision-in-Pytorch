@@ -1,0 +1,107 @@
+\chapter{Przeprowadzone eksperymenty}
+\label{chap:eksperymenty}
+
+Ten rozdział zawiera opisy przeprowadzonych eksperymentów wraz z wynikami.
+
+\subsection{TopK SAE z usuwaniem stronniczości poprzez modyfikację stanu ukrytego SAE}
+\subsubsection{Commit ID: c76efa2}
+
+Eksperyment ten polegał na:
+\begin{enumerate}
+\item   Wytrenowaniu modelu klasyfikacji obrazów o następującej architekturze:
+\begin{verbatim}
+    class ClsModel(nn.Module):
+        def __init__(self, n_classes=10):
+            super().__init__()
+            self.fc = nn.Sequential(
+                nn.Flatten(),
+                nn.Linear(3 * 784, 512),
+                nn.Tanh(),
+                nn.Linear(512, 64),
+                nn.Tanh(),
+                nn.Linear(64, 8),
+                nn.Tanh(),
+                nn.Linear(8, n_classes),
+            )
+
+        def forward(self, x):
+            return self.fc(x)
+\end{verbatim}
+
+\item   Treningu modelu SAE do rekonstrukcji wyjścia drugiej warstwy modelu przy zachowaniu rzadkości wektora ukrytego SAE.
+\begin{verbatim}
+    SAE_FEATURES_LAYER = -5	# Output of this layer will be used as input for the SAE
+    SAE_HIDDEN_DIM = 64*4
+    SAE_ALPHA = 0
+    SAE_TOPK = 6    # Only applies when using TopKSAE
+    SAE_BS = 128
+
+    class TopkSAE(nn.Module):
+    """Sparse autoencoder built from simple Linear layers."""
+
+    def __init__(self, n_inputs: int, n_hidden: int, topk: int) -> None:
+        """
+        Initialize function.
+
+        Args:
+                n_inputs: Shape of input layer.
+                n_hidden: Shape of hidden vector.
+                topk: Number of top values to keep.
+        """
+        super().__init__()
+        self.topk = topk
+        self.weights = nn.Parameter(torch.empty(n_inputs, n_hidden), requires_grad=True)
+        nn.init.xavier_normal_(self.weights)
+        self.bias = nn.Parameter(torch.zeros(n_inputs), requires_grad=True)
+        self.hidden_dim = n_hidden
+
+    def encode(self, x: torch.Tensor) -> torch.Tensor:
+        """
+        Encodes the input using using encoder layer.
+
+        Args:
+                x: Input tensor.
+        Returns:
+                torch.Tensor: Autoencoder hidden vector.
+        """
+        return torch.relu(torch.einsum("...i, ij -> ...j", x, self.weights))
+
+    def decode(self, hidden: torch.Tensor) -> torch.Tensor:
+        """
+        Decodes the input using using decoder layer.
+
+        Args:
+                hidden: Hidden vector which is an output of the encoder layer.
+        Returns:
+                torch.Tensor: Reconstructed output.
+        """
+        return torch.einsum("...j, ij -> ...i", hidden, self.weights) + self.bias
+
+    def forward(self, x):
+        """
+        Forward function that encodes the input, applies topk and reconstructs it using decoder.
+
+        Args:
+                x: Input tensor.
+
+        Returns:
+                torch.Tensor: Reconstructed input.
+                torch.Tensor: Sparse hidden vector which is an output of the encoder layer.
+        """
+        hidden = self.encode(x)
+
+        values, indices = torch.topk(hidden, self.topk, dim=1)
+        sparse_hidden = torch.zeros_like(hidden)
+        sparse_hidden.scatter_(1, indices, values)
+
+        output = self.decode(sparse_hidden)
+        return output, sparse_hidden
+
+\end{verbatim}
+
+\item   Modyfikacji wyjścia modelu klasyfikacji poprzez encoding oraz decoding aktywacji drugiej warstwy modelu klasfyikacji przy pomocy SAE oraz modyfikację ukrytego wektora tak aby wykluczyć rekonstrukcję na podstawie cech bazujących na kolorach. 
+Ograniczenia:
+\begin{itemize}
+\item   Skuteczność modyfikacji wyjścia zależy od tego jak dobrze SAE jest w stanie reskontruować aktywacje modelu klasyfikacji.
+\item   Problematyczne jest jednoznaczne wskazanie neuronów odpowiadających wyłącznie za kolor. Poszczególne neurony reagują przeważnie np. na kolor zielony, ale brakuje osobnego neuronu, który będzie odpowiadał wyłącznie za konkretną cyfrę. W związku z tym modyfikacja tego neuronu wpływa zarówno na klasyfikację konkretnego koloru jak i konkretnej cyfry.
+\end{itemize}
