@@ -220,3 +220,10 @@ __marimo__/
 .streamlit/secrets.toml
 
 data/
+
+# Latex
+*.aux
+*.out
+*.pdf
+*.gz
+*.toc
