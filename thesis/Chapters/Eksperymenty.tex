@@ -9,6 +9,8 @@ Ten rozdział zawiera opisy przeprowadzonych eksperymentów wraz z wynikami.
 Eksperyment ten polegał na:
 \begin{enumerate}
 \item   Wytrenowaniu modelu klasyfikacji obrazów o następującej architekturze:
+
+\begin{small}
 \begin{verbatim}
     class ClsModel(nn.Module):
         def __init__(self, n_classes=10):
@@ -27,8 +29,10 @@ Eksperyment ten polegał na:
         def forward(self, x):
             return self.fc(x)
 \end{verbatim}
+\end{small}
 
 \item   Treningu modelu SAE do rekonstrukcji wyjścia drugiej warstwy modelu przy zachowaniu rzadkości wektora ukrytego SAE.
+\begin{small}
 \begin{verbatim}
     SAE_FEATURES_LAYER = -5	# Output of this layer will be used as input for the SAE
     SAE_HIDDEN_DIM = 64*4
@@ -79,14 +83,16 @@ Eksperyment ten polegał na:
 
     def forward(self, x):
         """
-        Forward function that encodes the input, applies topk and reconstructs it using decoder.
+        Forward function that encodes the input, 
+        applies topk and reconstructs it using decoder.
 
         Args:
                 x: Input tensor.
 
         Returns:
                 torch.Tensor: Reconstructed input.
-                torch.Tensor: Sparse hidden vector which is an output of the encoder layer.
+                torch.Tensor: Sparse hidden vector which is 
+                                an output of the encoder layer.
         """
         hidden = self.encode(x)
 
@@ -98,6 +104,7 @@ Eksperyment ten polegał na:
         return output, sparse_hidden
 
 \end{verbatim}
+\end{small}
 
 \item   Modyfikacji wyjścia modelu klasyfikacji poprzez encoding oraz decoding aktywacji drugiej warstwy modelu klasfyikacji przy pomocy SAE oraz modyfikację ukrytego wektora tak aby wykluczyć rekonstrukcję na podstawie cech bazujących na kolorach. 
 Ograniczenia:
