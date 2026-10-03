@@ -47,12 +47,10 @@ class TrimmedClsModel(nn.Module):
         self.cls_head = self.cls_model.fc[sae_features_layer + 1 :]
 
         self.sae_model = sae_model
-        self.neurons_to_kill = torch.tensor(
-            neurons_to_kill, device=device, dtype=torch.long
-        )
+        self.neurons_to_kill = torch.tensor(neurons_to_kill, dtype=torch.long)
 
         selected_neurons_weights = torch.tensor(
-            steering_weights, device=device, dtype=torch.float32
+            steering_weights, dtype=torch.float32
         )  # Scaling value for steering
         selected_neurons_weights = selected_neurons_weights.unsqueeze(-1).broadcast_to(
             (len(self.neurons_to_kill), 1)
@@ -60,10 +58,11 @@ class TrimmedClsModel(nn.Module):
 
         sae_hidden_dim = self.sae_model.hidden_dim
 
-        self.steering_weights = torch.zeros((sae_hidden_dim, 1), device=device)
+        self.steering_weights = torch.zeros((sae_hidden_dim, 1))
         self.steering_weights[self.neurons_to_kill] = selected_neurons_weights
 
         self.steering_matrix = self.sae_model.weights.T
+        self.steering_weights = self.steering_weights.to(self.steering_matrix.device)
         self.steering_matrix = self.steering_matrix * self.steering_weights
 
     def forward(self, x, return_topk_indices=False):
