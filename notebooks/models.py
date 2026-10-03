@@ -37,8 +37,9 @@ class TrimmedClsModel(nn.Module):
         self,
         cls_model: nn.Module,
         sae_model: nn.Module,
-        neurons_to_kill: List = [],
+        neurons_to_kill: list = [],
         sae_features_layer: int = -3,
+        steering_weights: float | List[float] = 0.5,
     ):
         super().__init__()
         self.cls_model = cls_model
@@ -46,29 +47,47 @@ class TrimmedClsModel(nn.Module):
         self.cls_head = self.cls_model.fc[sae_features_layer + 1 :]
 
         self.sae_model = sae_model
-        self.neurons_to_kill = neurons_to_kill
+        self.neurons_to_kill = torch.tensor(neurons_to_kill, dtype=torch.long)
 
-    def forward(self, x, return_hidden=False):
+        selected_neurons_weights = torch.tensor(
+            steering_weights, dtype=torch.float32
+        )  # Scaling value for steering
+        selected_neurons_weights = selected_neurons_weights.unsqueeze(-1).broadcast_to(
+            (len(self.neurons_to_kill), 1)
+        )
+
+        sae_hidden_dim = self.sae_model.hidden_dim
+
+        self.steering_weights = torch.zeros((sae_hidden_dim, 1))
+        self.steering_weights[self.neurons_to_kill] = selected_neurons_weights
+
+        self.steering_matrix = self.sae_model.weights.T
+        self.steering_weights = self.steering_weights.to(self.steering_matrix.device)
+        self.steering_matrix = self.steering_matrix * self.steering_weights
+
+    def forward(self, x, return_topk_indices=False):
         # Embedding extraction using cls backbone
         embedding = self.cls_backbone(x)
 
         # SAE embedding modification
-        hidden = self.sae_model.encode(embedding)
-        modified_hidden = hidden
-        modified_hidden[:, self.neurons_to_kill] = 0
+        init_hidden = self.sae_model.encode(embedding)  # SAE hidden before steering
 
         topk = getattr(self.sae_model, "topk", 0)
 
         if topk:
-            values, indices = torch.topk(modified_hidden, topk, dim=1)
-            sparse_hidden = torch.zeros_like(modified_hidden)
-            sparse_hidden.scatter_(1, indices, values)
+            init_values, init_indices = torch.topk(init_hidden, topk, dim=1)
+            modification_vector = self.steering_matrix[init_indices]
 
-        sae_output = self.sae_model.decode(modified_hidden)
+            modification_vector = modification_vector.sum(
+                axis=1
+            )  # Sum modifications for all neurons in topk and neurons_to_kill
+            modified_embedding = embedding - modification_vector
 
-        cls_output = self.cls_head(sae_output)
-        if return_hidden:
-            return cls_output, sparse_hidden
+            post_hidden = self.sae_model.encode(modified_embedding)
+
+        cls_output = self.cls_head(modified_embedding)
+        if return_topk_indices:
+            return cls_output, init_hidden, post_hidden
         return cls_output
 
 
