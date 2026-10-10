@@ -8,9 +8,13 @@ class ClsModel(nn.Module):
         super().__init__()
         self.fc = nn.Sequential(
             nn.Flatten(),
-            nn.Linear(3 * 784, 16),
+            nn.Linear(3 * 784, 512),
             nn.Tanh(),
-            nn.Linear(16, n_classes),
+            nn.Linear(512, 64),
+            nn.Tanh(),
+            nn.Linear(64, 8),
+            nn.Tanh(),
+            nn.Linear(8, n_classes),
         )
 
     def forward(self, x):
