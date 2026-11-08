@@ -1,0 +1,13 @@
+cls_model:
+  type: mlp
+  lr: 1e-03
+  batch_size: 64
+
+sae_model:
+  type: l1
+  lr: 1e-03
+  batch_size: 64
+  sae_input_layer: linear_02
+
+trimmed_cls_model:
+  method: vectorsub
