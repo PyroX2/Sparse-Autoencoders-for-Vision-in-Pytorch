@@ -3,6 +3,7 @@ cls_model:
   n_outputs: 10
   lr: 1e-03
   batch_size: 64
+  epochs: 10
 
 sae_model:
   type: l1
