@@ -1,5 +1,6 @@
 cls_model:
   type: mlp
+  n_outputs: 10
   lr: 1e-03
   batch_size: 64
 
